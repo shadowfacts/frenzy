@@ -1,0 +1,27 @@
+{
+  "name": "frenzy",
+  "version": "0.1.0",
+  "description": "A self-hosted RSS aggregator that implements the Fever API.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shadowfacts/frenzy.git"
+  },
+  "author": "shadowfacts",
+  "license": "LGPL-3.0",
+  "bugs": {
+    "url": "https://github.com/shadowfacts/frenzy/issues"
+  },
+  "homepage": "https://github.com/shadowfacts/frenzy#readme",
+  "dependencies": {
+    "body-parser": "^1.18.3",
+    "express": "^4.16.3",
+    "md5": "^2.2.1",
+    "rss-parser": "^3.4.3",
+    "sequelize": "^4.38.1",
+    "sqlite3": "^4.0.2"
+  }
+}

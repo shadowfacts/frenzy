@@ -1,0 +1,19 @@
+[
+    {
+        "id": 0,
+        "favicon_id": 0,
+        "title": "inessential.com",
+        "site_url": "http://inessential.com/",
+        "is_spark": 0,
+        "last_updated_on_time": 1537388335374
+    },
+    {
+        "id": 1,
+        "favicon_id": 1,
+        "title": "Erica Sadun",
+        "url": "https://ericasadun.com/feed/",
+        "site_url": "https://ericasadun.com",
+        "is_spark": 0,
+        "last_updated_on_time": 1537388336088
+    }
+]
