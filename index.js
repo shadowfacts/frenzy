@@ -124,7 +124,7 @@ function updateFeeds() {
 				existingFeed.lastUpdated = Date.now();
 				parsed.items.forEach(item => {
 					const itemGUID = item.guid ? item.guid : item.link;
-					const hasExistingItem = existingItems.some(existing => existing.guid === item.guid);
+					const hasExistingItem = existingItems.some(existing => existing.guid === itemGUID);
 					const isRead = readGUIDs.includes(itemGUID);
 					if (!hasExistingItem && !isRead) {
 						const id = maxID++;
@@ -244,8 +244,7 @@ app.use(bodyParser.urlencoded({
 app.post("/fever", (req, res) => {
 	const query = req.query, body = req.body;
 
-	console.info("Handling request: " + JSON.stringify(query));
-	console.info("Body: " + JSON.stringify(req.body));
+	console.log(`Handling request: ${req.originalUrl} | ${JSON.stringify(req.body)}`);
 
 	if (!query.hasOwnProperty("api")) {
 		res.status(400).end();
