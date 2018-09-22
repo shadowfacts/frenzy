@@ -3,6 +3,7 @@ module.exports = {
 	password: "password",
 	feeds: [
 		"http://inessential.com/xml/rss.xml",
-		"http://ericasadun.com/feed/"
+		"http://ericasadun.com/feed/",
+		"https://shadowfacts.net/feed.xml"
 	]
 };
