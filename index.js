@@ -63,7 +63,7 @@ class FeedItem {
 			url: this.link,
 			is_saved: 0,
 			is_read: this.read ? 1 : 0,
-			created_on_time: this.createdDate
+			created_on_time: this.createdDate / 1000 // JS dates are in miliseconds, Fever wants Unix time in seconds
 		};
 	}
 }
@@ -111,16 +111,19 @@ function updateFeeds() {
 					if (!existingItems.some(existing => existing.guid === item.guid)) {
 						const id = maxID++;
 						existingFeed.items.push(id);
-						items.push(new FeedItem(id, item.guid, item.title, item.link, item.creator, Date.parse(item.isoDate), item.content));
+						const guid = item.guid ? item.guid : item.link;
+						items.push(new FeedItem(id, existingFeed.id, guid, item.title, item.link, item.creator, Date.parse(item.isoDate), item.content));
 					}
 				});
 			});
 		} else { // new feed
 			return parser.parseURL(url).then(parsed => {
-				let feed = new Feed(maxFeedID++, parsed.title, url, parsed.link, Date.now());
+				const feedID = maxFeedID++;
+				let feed = new Feed(feedID, parsed.title, url, parsed.link, Date.now());
 				feed.items = parsed.items.map(item => {
 					const id = maxID++;
-					items.push(new FeedItem(id, item.guid, item.title, item.link, item.creator, Date.parse(item.isoDate), item.content));
+					const guid = item.guid ? item.guid : item.link;
+					items.push(new FeedItem(id, feedID, guid, item.title, item.link, item.creator, Date.parse(item.isoDate), item.content));
 					return id;
 				});
 				feeds.push(feed);
@@ -165,8 +168,8 @@ function createLinks(response) {
 }
 
 function createUnread(response) {
-	response["unread_item_ids"] = "";
-	response["saved_item_ids"] = "";
+	const unread = items.sort((a, b) => a.createdDate - b.createdDate).map(item => item.id).join(",");
+	response["unread_item_ids"] = unread;
 	return Promise.resolve(response);
 }
 
@@ -179,9 +182,9 @@ function createItems(response, since, max, ids) {
 	if (ids !== undefined) {
 		response["items"] = ids.map(id => items[id]);
 	} else if (since !== undefined) {
-		repsonse["items"] = items.filter(item => item.id > since).sort((a, b) => a.id - b.id).slice(0, 50);
+		response["items"] = items.filter(item => item.id > since).sort((a, b) => a.id - b.id).slice(0, 50);
 	} else if (max !== undefined) {
-		repsonse["items"] = items.filter(item => item.id < since).sort((a, b) => a.id - b.id).slice(0, 50);
+		response["items"] = items.filter(item => item.id < since).sort((a, b) => a.id - b.id).slice(0, 50);
 	} else {
 		response["items"] = items.sort((a, b) => a.id - b.id).slice(0, 50);
 	}
@@ -199,6 +202,7 @@ app.use(bodyParser.urlencoded({
 app.post("/fever", (req, res) => {
 	const query = req.query;
 
+	console.info("Handling request: " + JSON.stringify(query));
 	if (!query.hasOwnProperty("api")) {
 		res.status(400).end();
 		return;
@@ -206,11 +210,18 @@ app.post("/fever", (req, res) => {
 
 	const apiKey = req.body["api_key"];
 	if (apiKey !== validAPIKey) {
-		res.status(401).end();
+		const response = {
+			api_version: 2,
+			auth: 0
+		};
+		res.status(401).json(response).end();
 		return;
 	}
 
-	let response = Promise.resolve({});
+	let response = Promise.resolve({
+		api_version: 2,
+		auth: 1
+	});
 
 	if (query.hasOwnProperty("groups")) {
 		response = response.then(createGroups);
