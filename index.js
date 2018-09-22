@@ -37,7 +37,7 @@ class Feed {
 }
 
 class FeedItem {
-	constructor(id, feedID, guid, title, link, creator, createdDate, content, read = false) {
+	constructor(id, feedID, guid, title, link, creator, createdDate, content, read = false, readDate = null) {
 		this.id = id;
 		this.feedID = feedID;
 		this.guid = guid;
@@ -47,10 +47,11 @@ class FeedItem {
 		this.createdDate = createdDate;
 		this.content = content;
 		this.read = read;
+		this.readDate = readDate;
 	}
 
 	static fromPersistedJSON(obj) {
-		return new FeedItem(obj.id, obj.feedID, obj.guid, obj.title, obj.link, obj.creator, obj.createdDate, obj.content, obj.read);
+		return new FeedItem(obj.id, obj.feedID, obj.guid, obj.title, obj.link, obj.creator, obj.createdDate, obj.content, obj.read, obj.readDate);
 	}
 
 	toFeverJSON() {
@@ -77,42 +78,49 @@ Array.prototype.partition = function(func) {
 };
 
 let feeds, items;
+let maxFeedID, maxID;
+let readGUIDs;
 
-fs.readFile("data/feeds.json", (err, data) => {
-	feeds = err ? [] : JSON.parse(data).map(Feed.fromPersistedJSON);
-	
+fs.readFile("data/ids.json", (err, data) => {
+	const ids = err ? {maxFeedID: 0, maxItemID: 0} : JSON.parse(data);
+	maxFeedID = ids.maxFeedID;
+	maxID = ids.maxItemID;
 
-	console.log("Existing feeds: " + feeds.map(it => it.title));
+	fs.readFile("data/read.json", (err, data) => {
+		readGUIDs = err ? [] : JSON.parse(data);
 
-	fs.readFile("data/items.json", (err, data) => {
-		items = err ? [] : JSON.parse(data).map(FeedItem.fromPersistedJSON);
+		fs.readFile("data/feeds.json", (err, data) => {
+			feeds = err ? [] : JSON.parse(data).map(Feed.fromPersistedJSON);
 
-		updateFeeds();
-		setInterval(updateFeeds, 1000 * 60 * 15);
+			console.log("Existing feeds: " + feeds.map(it => it.title));
+
+			fs.readFile("data/items.json", (err, data) => {
+				items = err ? [] : JSON.parse(data).map(FeedItem.fromPersistedJSON);
+
+				updateFeeds();
+				setInterval(updateFeeds, 1000 * 60 * 15);
+			});
+		});
 	});
 });
-
-let maxFeedID;
-let maxID;
 
 function updateFeeds() {
 	console.log("Updating feeds...");
 
-	maxFeedID = feeds.length;
-	maxID = items.length;
-
 	const promises = config.feeds.map(url => {
 		let existingFeed = feeds.find(feed => feed.feedURL === url);
 		if (existingFeed) { // existing feed
-			let existingItems = existingFeed.items.map(id => items[id]);
+			let existingItems = existingFeed.items.map(id => items.find(item => item.id === id));
 			return parser.parseURL(url).then(parsed => {
 				existingFeed.lastUpdated = Date.now();
 				parsed.items.forEach(item => {
-					if (!existingItems.some(existing => existing.guid === item.guid)) {
+					const itemGUID = item.guid ? item.guid : item.link;
+					const hasExistingItem = existingItems.some(existing => existing.guid === item.guid);
+					const isRead = readGUIDs.includes(itemGUID);
+					if (!hasExistingItem && !isRead) {
 						const id = maxID++;
 						existingFeed.items.push(id);
-						const guid = item.guid ? item.guid : item.link;
-						items.push(new FeedItem(id, existingFeed.id, guid, item.title, item.link, item.creator, Date.parse(item.isoDate), item.content));
+						items.push(new FeedItem(id, existingFeed.id, itemGUID, item.title, item.link, item.creator, Date.parse(item.isoDate), item.content));
 					}
 				});
 			});
@@ -133,12 +141,24 @@ function updateFeeds() {
 
 	Promise.all(promises).then(() => {
 		console.log("Finished updating feeds.");
+		console.log("Pruning read items...");
+		const [discard, keep] = items.partition(item => item.read && Date.now() - item.readDate > 1000 * 60 * 60 * 24 * 7);
+		discard.forEach(item => {
+			const feed = feeds.find(feed => feed.id === item.feedID);
+			const i = feed.items.indexOf(item.id);
+			if (i > -1) feed.items.splice(i, 1);
+			readGUIDs.push(item.guid);
+		});
+		items = keep;
+		console.log(`Pruned ${discard.length} read items.`);
 	});
 }
 
 function exitHandler() {
 	fs.writeFileSync("data/feeds.json", JSON.stringify(feeds, null, 4));
 	fs.writeFileSync("data/items.json", JSON.stringify(items, null, 4));
+	fs.writeFileSync("data/ids.json", JSON.stringify({maxFeedID: maxFeedID, maxItemID: maxID}, null, 4));
+	fs.writeFileSync("data/read.json", JSON.stringify(readGUIDs, null, 4));
 	process.exit();
 }
 
@@ -168,7 +188,7 @@ function createLinks(response) {
 }
 
 function createUnread(response) {
-	const unread = items.sort((a, b) => a.createdDate - b.createdDate).map(item => item.id).join(",");
+	const unread = items.filter(item => !item.read).map(item => item.id).join(",");
 	response["unread_item_ids"] = unread;
 	return Promise.resolve(response);
 }
@@ -180,7 +200,7 @@ function createSaved(response) {
 
 function createItems(response, since, max, ids) {
 	if (ids !== undefined) {
-		response["items"] = ids.map(id => items[id]);
+		response["items"] = ids.map(id => items.find(item => item.id === id));
 	} else if (since !== undefined) {
 		response["items"] = items.filter(item => item.id > since).sort((a, b) => a.id - b.id).slice(0, 50);
 	} else if (max !== undefined) {
@@ -200,15 +220,17 @@ app.use(bodyParser.urlencoded({
 }));
 
 app.post("/fever", (req, res) => {
-	const query = req.query;
+	const query = req.query, body = req.body;
 
 	console.info("Handling request: " + JSON.stringify(query));
+	console.info("Body: " + JSON.stringify(req.body));
+
 	if (!query.hasOwnProperty("api")) {
 		res.status(400).end();
 		return;
 	}
 
-	const apiKey = req.body["api_key"];
+	const apiKey = body["api_key"];
 	if (apiKey !== validAPIKey) {
 		const response = {
 			api_version: 2,
@@ -223,6 +245,21 @@ app.post("/fever", (req, res) => {
 		auth: 1
 	});
 
+	// Actions
+	if (body["mark"] === "item" && body["as"] === "read") {
+		const id = parseInt(body["id"]);
+		const item = items.find(item => item.id === id);
+		item.read = true;
+		item.readDate = Date.now();
+	}
+	if (body["unread_recently_read"] === 1) {
+		items.filter(item => item.read && Date.now() - item.readDate <= 1000 * 60 * 60).forEach(item => {
+			item.read = false;
+			item.readDate = null;
+		});
+	}
+
+	// Responses
 	if (query.hasOwnProperty("groups")) {
 		response = response.then(createGroups);
 	}
