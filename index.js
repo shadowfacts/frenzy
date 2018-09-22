@@ -267,11 +267,17 @@ app.post("/fever", (req, res) => {
 	});
 
 	// Actions
-	if (body["mark"] === "item" && body["as"] === "read") {
+	if (body["mark"] === "item") {
 		const id = parseInt(body["id"]);
 		const item = items.find(item => item.id === id);
-		item.read = true;
-		item.readDate = Date.now();
+		const as = body["as"];
+		if (as === "read") {
+			item.read = true;
+			item.readDate = Date.now();
+		} else if (as === "unread") {
+			item.read = false;
+			item.readDate = null;
+		}
 	}
 	if (body["unread_recently_read"] === 1) {
 		items.filter(item => item.read && Date.now() - item.readDate <= 1000 * 60 * 60).forEach(item => {
