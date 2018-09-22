@@ -1,4 +1,5 @@
 const fs = require("fs");
+const path = require("path");
 const parser = new (require("rss-parser"))();
 const express = require("express");
 const bodyParser = require("body-parser");
@@ -90,20 +91,20 @@ let feeds, items;
 let maxFeedID, maxID;
 let readGUIDs;
 
-fs.readFile("data/ids.json", (err, data) => {
+fs.readFile(path.join(__dirname, "data/ids.json"), (err, data) => {
 	const ids = err ? {maxFeedID: 0, maxItemID: 0} : JSON.parse(data);
 	maxFeedID = ids.maxFeedID;
 	maxID = ids.maxItemID;
 
-	fs.readFile("data/read.json", (err, data) => {
+	fs.readFile(path.join(__dirname, "data/read.json"), (err, data) => {
 		readGUIDs = err ? [] : JSON.parse(data);
 
-		fs.readFile("data/feeds.json", (err, data) => {
+		fs.readFile(path.join(__dirname, "data/feeds.json"), (err, data) => {
 			feeds = err ? [] : JSON.parse(data).map(Feed.fromPersistedJSON);
 
 			console.log("Existing feeds: " + feeds.map(it => it.title));
 
-			fs.readFile("data/items.json", (err, data) => {
+			fs.readFile(path.join(__dirname, "data/items.json"), (err, data) => {
 				items = err ? [] : JSON.parse(data).map(FeedItem.fromPersistedJSON);
 
 				updateFeeds();
@@ -160,13 +161,13 @@ function updateFeeds() {
 		items = keep;
 		console.log(`Pruned ${discard.length} read items.`);
 		console.log("Saving data...");
-		fs.writeFile("data/feeds.json", stringify(feeds), (err) => {
+		fs.writeFile(path.join(__dirname, "data/feeds.json"), stringify(feeds), (err) => {
 			if (err) throw err;
-			fs.writeFile("data/items.json", stringify(items), (err) => {
+			fs.writeFile(path.join(__dirname, "data/items.json"), stringify(items), (err) => {
 				if (err) throw err;
-				fs.writeFile("data/ids.json", stringify({maxFeedID: maxFeedID, maxItemID: maxID}), (err) => {
+				fs.writeFile(path.join(__dirname, "data/ids.json"), stringify({maxFeedID: maxFeedID, maxItemID: maxID}), (err) => {
 					if (err) throw err;
-					fs.writeFile("data/read.json", stringify(readGUIDs), (err) => {
+					fs.writeFile(path.join(__dirname, "data/read.json"), stringify(readGUIDs), (err) => {
 						if (err) throw err;
 						console.log("Finished saving data.");
 					});
@@ -177,10 +178,10 @@ function updateFeeds() {
 }
 
 function exitHandler() {
-	fs.writeFileSync("data/feeds.json", stringify(feeds));
-	fs.writeFileSync("data/items.json", stringify(items));
-	fs.writeFileSync("data/ids.json", stringify({maxFeedID: maxFeedID, maxItemID: maxID}));
-	fs.writeFileSync("data/read.json", stringify(readGUIDs));
+	fs.writeFileSync(path.join(__dirname, "data/feeds.json"), stringify(feeds));
+	fs.writeFileSync(path.join(__dirname, "data/items.json"), stringify(items));
+	fs.writeFileSync(path.join(__dirname, "data/ids.json"), stringify({maxFeedID: maxFeedID, maxItemID: maxID}));
+	fs.writeFileSync(path.join(__dirname, "data/read.json"), stringify(readGUIDs));
 	process.exit();
 }
 
