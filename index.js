@@ -241,10 +241,27 @@ app.use(bodyParser.urlencoded({
 	extended: false
 }));
 
+app.get("/fever", (req, res) => {
+	const query = req.query;
+
+	console.log(`Handling request: GET ${req.originalUrl} | ${JSON.stringify(req.body)}`);
+
+	if (!query.hasOwnProperty("api")) {
+		res.status(400).end();
+		return;
+	}
+
+	const response = {
+		api_version: 2,
+		auth: 0
+	};
+	res.json(response).status(200).end();
+});
+
 app.post("/fever", (req, res) => {
 	const query = req.query, body = req.body;
 
-	console.log(`Handling request: ${req.originalUrl} | ${JSON.stringify(req.body)}`);
+	console.log(`Handling request: POST ${req.originalUrl} | ${JSON.stringify(req.body)}`);
 
 	if (!query.hasOwnProperty("api")) {
 		res.status(400).end();
@@ -257,7 +274,7 @@ app.post("/fever", (req, res) => {
 			api_version: 2,
 			auth: 0
 		};
-		res.status(401).json(response).end();
+		res.json(response).status(200).end();
 		return;
 	}
 
