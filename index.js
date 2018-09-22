@@ -141,7 +141,6 @@ function updateFeeds() {
 
 	Promise.all(promises).then(() => {
 		console.log("Finished updating feeds.");
-		console.log("Pruning read items...");
 		const [discard, keep] = items.partition(item => item.read && Date.now() - item.readDate > 1000 * 60 * 60 * 24 * 7);
 		discard.forEach(item => {
 			const feed = feeds.find(feed => feed.id === item.feedID);
@@ -151,6 +150,20 @@ function updateFeeds() {
 		});
 		items = keep;
 		console.log(`Pruned ${discard.length} read items.`);
+		console.log("Saving data...");
+		fs.writeFile("data/feeds.json", JSON.stringify(feeds, null, 4), (err) => {
+			if (err) throw err;
+			fs.writeFile("data/items.json", JSON.stringify(items, null, 4), (err) => {
+				if (err) throw err;
+				fs.writeFile("data/ids.json", JSON.stringify({maxFeedID: maxFeedID, maxItemID: maxID}, null, 4), (err) => {
+					if (err) throw err;
+					fs.writeFile("data/read.json", JSON.stringify(readGUIDs, null, 4), (err) => {
+						if (err) throw err;
+						console.log("Finished saving data.");
+					});
+				});
+			});
+		});
 	});
 }
 
