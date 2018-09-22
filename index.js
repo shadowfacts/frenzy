@@ -5,6 +5,15 @@ const bodyParser = require("body-parser");
 const md5 = require("md5");
 
 const config = require("./config");
+
+function stringify(obj) {
+	if (config.prettyPrint) {
+		return JSON.stringify(obj, null, 4);
+	} else {
+		return JSON.stringify(obj);
+	}
+}
+
 const validAPIKey = md5(`${config.email}:${config.password}`);
 console.log(`API key: ${validAPIKey}`);
 
@@ -151,13 +160,13 @@ function updateFeeds() {
 		items = keep;
 		console.log(`Pruned ${discard.length} read items.`);
 		console.log("Saving data...");
-		fs.writeFile("data/feeds.json", JSON.stringify(feeds, null, 4), (err) => {
+		fs.writeFile("data/feeds.json", stringify(feeds), (err) => {
 			if (err) throw err;
-			fs.writeFile("data/items.json", JSON.stringify(items, null, 4), (err) => {
+			fs.writeFile("data/items.json", stringify(items), (err) => {
 				if (err) throw err;
-				fs.writeFile("data/ids.json", JSON.stringify({maxFeedID: maxFeedID, maxItemID: maxID}, null, 4), (err) => {
+				fs.writeFile("data/ids.json", stringify({maxFeedID: maxFeedID, maxItemID: maxID}), (err) => {
 					if (err) throw err;
-					fs.writeFile("data/read.json", JSON.stringify(readGUIDs, null, 4), (err) => {
+					fs.writeFile("data/read.json", stringify(readGUIDs), (err) => {
 						if (err) throw err;
 						console.log("Finished saving data.");
 					});
@@ -168,10 +177,10 @@ function updateFeeds() {
 }
 
 function exitHandler() {
-	fs.writeFileSync("data/feeds.json", JSON.stringify(feeds, null, 4));
-	fs.writeFileSync("data/items.json", JSON.stringify(items, null, 4));
-	fs.writeFileSync("data/ids.json", JSON.stringify({maxFeedID: maxFeedID, maxItemID: maxID}, null, 4));
-	fs.writeFileSync("data/read.json", JSON.stringify(readGUIDs, null, 4));
+	fs.writeFileSync("data/feeds.json", stringify(feeds));
+	fs.writeFileSync("data/items.json", stringify(items));
+	fs.writeFileSync("data/ids.json", stringify({maxFeedID: maxFeedID, maxItemID: maxID}));
+	fs.writeFileSync("data/read.json", stringify(readGUIDs));
 	process.exit();
 }
 
